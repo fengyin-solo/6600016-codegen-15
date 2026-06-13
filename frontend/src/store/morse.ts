@@ -181,32 +181,37 @@ export const useMorseStore = defineStore('morse', () => {
     playbackProgress.value = 1
   }
 
-  function addShortcut(key: string, label: string, message: string) {
+  function addShortcut(key: string, label: string, message: string): boolean {
+    const normalizedKey = key.toUpperCase()
+    if (shortcuts.value.some(s => s.key === normalizedKey)) return false
     const morse = textToMorse(message)
     shortcuts.value.push({
       id: generateId(),
-      key,
+      key: normalizedKey,
       label,
       message,
       morse,
     })
+    return true
   }
 
   function removeShortcut(id: string) {
     shortcuts.value = shortcuts.value.filter(s => s.id !== id)
   }
 
-  function updateShortcut(id: string, key: string, label: string, message: string) {
+  function updateShortcut(id: string, key: string, label: string, message: string): boolean {
+    const normalizedKey = key.toUpperCase()
     const idx = shortcuts.value.findIndex(s => s.id === id)
-    if (idx !== -1) {
-      shortcuts.value[idx] = {
-        ...shortcuts.value[idx],
-        key,
-        label,
-        message,
-        morse: textToMorse(message),
-      }
+    if (idx === -1) return false
+    if (shortcuts.value.some((s, i) => i !== idx && s.key === normalizedKey)) return false
+    shortcuts.value[idx] = {
+      ...shortcuts.value[idx],
+      key: normalizedKey,
+      label,
+      message,
+      morse: textToMorse(message),
     }
+    return true
   }
 
   function clearLogs() {

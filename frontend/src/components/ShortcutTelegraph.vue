@@ -14,9 +14,13 @@
           <div class="flex gap-2">
             <div class="flex-1">
               <label class="text-gray-400 text-xs">快捷键 (Alt+)</label>
-              <select v-model="newKey" class="w-full bg-gray-700 rounded px-2 py-1 text-white text-sm">
+              <select v-model="newKey" class="w-full bg-gray-700 rounded px-2 py-1 text-white text-sm"
+                :disabled="availableKeys.length === 0">
                 <option v-for="k in availableKeys" :key="k" :value="k">{{ k }}</option>
               </select>
+              <p v-if="availableKeys.length === 0" class="text-xs text-red-400 mt-1">
+                所有键位已占用，请先删除一个预设
+              </p>
             </div>
             <div class="flex-1">
               <label class="text-gray-400 text-xs">标签</label>
@@ -29,7 +33,8 @@
             <input v-model="newMessage" class="w-full bg-gray-700 rounded px-2 py-1 text-white text-sm"
               placeholder="如: SOS" @keyup.enter="handleAdd" />
           </div>
-          <button @click="handleAdd" :disabled="!newKey || !newMessage"
+          <p v-if="addError" class="text-xs text-red-400">{{ addError }}</p>
+          <button @click="handleAdd" :disabled="!newKey || !newMessage || availableKeys.length === 0"
             class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-500 disabled:opacity-40">
             确认添加
           </button>
@@ -125,11 +130,12 @@ import type { TelegraphLog } from '../types'
 const store = useMorseStore()
 
 const showAddForm = ref(false)
-const newKey = ref('1')
+const newKey = ref('')
 const newLabel = ref('')
 const newMessage = ref('')
 const rhythmCanvas = ref<HTMLCanvasElement | null>(null)
 const selectedLogId = ref<number | null>(null)
+const addError = ref('')
 
 const currentPlayback = computed(() => {
   if (selectedLogId.value) {
@@ -145,10 +151,20 @@ const availableKeys = computed(() => {
 })
 
 function handleAdd() {
+  addError.value = ''
   if (!newKey.value || !newMessage.value.trim()) return
-  store.addShortcut(newKey.value, newLabel.value || newMessage.value, newMessage.value.trim().toUpperCase())
+  const ok = store.addShortcut(newKey.value, newLabel.value || newMessage.value, newMessage.value.trim().toUpperCase())
+  if (!ok) {
+    addError.value = `快捷键 Alt+${newKey.value} 已被占用，请选择其他键位`
+    return
+  }
   newLabel.value = ''
   newMessage.value = ''
+  if (availableKeys.value.length > 0) {
+    newKey.value = availableKeys.value[0]
+  } else {
+    newKey.value = ''
+  }
   showAddForm.value = false
 }
 
@@ -170,6 +186,21 @@ function handleKeydown(e: KeyboardEvent) {
     }
   }
 }
+
+watch(availableKeys, (keys) => {
+  if (newKey.value && !keys.includes(newKey.value)) {
+    newKey.value = keys.length > 0 ? keys[0] : ''
+  }
+})
+
+watch(showAddForm, (open) => {
+  if (open) {
+    addError.value = ''
+    if (!availableKeys.value.includes(newKey.value)) {
+      newKey.value = availableKeys.value.length > 0 ? availableKeys.value[0] : ''
+    }
+  }
+}, { immediate: true })
 
 let animId = 0
 
